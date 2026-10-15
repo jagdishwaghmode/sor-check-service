@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+*.db
+.env
+# never commit credentials or OAuth tokens
+token.json
+gcal_token.json
+client_secret*.json
+*token*.json
+.DS_Store
+data/incoming/
+data/tx_registry_real.csv
+plan.md
+*.docx
