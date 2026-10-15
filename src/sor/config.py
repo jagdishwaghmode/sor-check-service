@@ -83,6 +83,7 @@ def load_config(path: Path) -> AppConfig:
         clear_below=t.get("clear_below", 0.40), flag_at=t.get("flag_at_or_above", 0.75),
         name_floor=m.get("name_floor", 0.60),
         dob_mismatch_min_name=m.get("dob_mismatch_min_name", 0.95),
+        dob_far_policy=m.get("dob_far_policy", "note"),
     )
     cfg = AppConfig(
         timeout_s=d.get("timeout_ms", 3000) / 1000,
@@ -102,6 +103,8 @@ def _validate(cfg: AppConfig) -> None:
     mc = cfg.match
     if abs(mc.w_name + mc.w_dob + mc.w_loc - 1.0) > 1e-6:
         raise ValueError("matching weights must sum to 1.0")
+    if mc.dob_far_policy not in ("note", "review"):
+        raise ValueError("matching.dob_far_policy must be 'note' or 'review'")
     if not 0 < mc.clear_below < mc.flag_at <= 1:
         raise ValueError("thresholds must satisfy 0 < clear_below < flag_at <= 1")
     if not cfg.default_chain:

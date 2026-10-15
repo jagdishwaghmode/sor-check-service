@@ -26,6 +26,14 @@ def test_exact_match_iowa_is_flagged_with_review_pending(client):
     assert "disclaimer" in r and r["disclaimer"]
 
 
+def test_same_name_far_dob_other_zip_is_clear_with_a_note(client):
+    r = post(client, make_request("John", "Doe", "1990-01-01", city="Cedar Rapids", zip_code="52401"))
+    assert r["status"] == "CLEAR" and "SAME_NAME_DIFFERENT_DOB" in r["reasons"]
+    res = r["providerResults"][0]
+    assert res["offendersFound"] == [] and res["sameNameOtherDobTotal"] == 2  # two made-up John Does in the demo data
+    assert {o["registryId"] for o in res["sameNameOtherDob"]} == {"IA-55102", "IA-55105"}
+
+
 def test_blank_home_state_is_treated_as_missing(client):
     body = make_request("John", "Doe", "1980-05-15", city="Des Moines", zip_code="50309")
     body["residenceState"] = ""  # the UI sends this when "Home state" is left blank

@@ -15,7 +15,7 @@ from sor.aggregate import Attempt, StateOutcome, aggregate
 from sor.audit import AuditLog, mask_name
 from sor.breaker import CircuitBreaker
 from sor.config import AppConfig
-from sor.matching import score_records
+from sor.matching import split_candidates
 from sor.models import (
     AttemptOut,
     AttemptStatus,
@@ -119,13 +119,13 @@ class Engine:
                                         f"unexpected {type(e).__name__}"))
                 continue
             breaker.record_success()
-            scored = score_records(patient, records, self.cfg.match)
+            scored, name_only = split_candidates(patient, records, self.cfg.match)
             status = AttemptStatus.MATCH_FOUND if scored else AttemptStatus.NO_MATCH
             attempts.append(Attempt(name, prov.kind, status, _ms(a0)))
             as_of = prov.data_as_of()
             return StateOutcome(state, True, name, attempts, scored, _ms(t0),
                                 as_of.isoformat(timespec="seconds") if as_of else None,
-                                prov.synthetic)
+                                prov.synthetic, name_only)
         return StateOutcome(state, False, None, attempts, [], _ms(t0))
 
     # ------------------------------------------------------------------ whole check
@@ -177,8 +177,8 @@ class Engine:
 
     @staticmethod
     def _result_out(o: StateOutcome) -> ProviderResultOut:
-        offenders = [
-            OffenderOut(
+        def out(s) -> OffenderOut:
+            return OffenderOut(
                 registryId=s.record.registry_id, fullName=s.record.full_name,
                 dob=s.record.dob.isoformat() if s.record.dob else None,
                 matchConfidence=s.score, band=s.band,
@@ -188,16 +188,20 @@ class Engine:
                 detailUrl=s.record.detail_url, state=s.record.source_state,
                 provider=s.record.source_provider,
             )
-            for s in o.scored
-        ]
+
         return ProviderResultOut(
             state=o.state, providerUsed=o.provider_used,
             status=("MATCH_FOUND" if o.scored else "NO_MATCH") if o.checked else "UNCHECKED",
             latencyMs=o.latency_ms, dataAsOf=o.data_as_of, synthetic=o.synthetic,
             attempts=[AttemptOut(provider=a.provider, kind=a.kind, status=a.status,
                                  latencyMs=a.latency_ms, error=a.error) for a in o.attempts],
-            offendersFound=offenders,
+            offendersFound=[out(s) for s in o.scored],
+            sameNameOtherDob=[out(s) for s in o.name_only[:_NAME_ONLY_SHOWN]],
+            sameNameOtherDobTotal=len(o.name_only),
         )
+
+
+_NAME_ONLY_SHOWN = 20  # cap the response, the full count is reported separately
 
 
 def _ms(t0: float) -> int:

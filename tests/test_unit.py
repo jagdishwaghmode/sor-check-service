@@ -4,7 +4,7 @@ import pytest
 
 from sor.aggregate import Attempt, StateOutcome, aggregate
 from sor.breaker import CircuitBreaker
-from sor.matching import MatchConfig, ScoredRecord, score_record, score_records
+from sor.matching import MatchConfig, ScoredRecord, dob_is_near, score_record, score_records, split_candidates
 from sor.models import AttemptStatus, Coverage, NormalizedPatient, OverallStatus, ReviewStatus
 from sor.providers.base import build_record
 from sor.textutil import clean, epoch_ms_to_date, parse_date, parse_full_name, split_suffix
@@ -95,6 +95,45 @@ def test_different_dob_keeps_only_near_exact_names():
     assert same.band == "INCONCLUSIVE" and similar.band == "NONE"
 
 
+# a far-off birth date, a different zip and no middle name in common: same name, different person
+FAR = dict(dob=date(1990, 1, 1), zip_code="99999", city="ELSEWHERE")
+
+
+def test_far_dob_same_name_is_name_only_not_a_match():
+    s = score_record(patient(**FAR), record(), CFG)
+    assert s.band == "NAME_ONLY" and s.score < CFG.clear_below
+
+
+def test_far_dob_with_same_zip_or_middle_name_stays_inconclusive():
+    same_zip = score_record(patient(dob=date(1990, 1, 1), zip_code="50309"), record(), CFG)
+    same_middle = score_record(patient(middle="MICHAEL", **FAR), record(middle="MICHAEL"), CFG)
+    assert same_zip.band == "INCONCLUSIVE" and same_middle.band == "INCONCLUSIVE"
+
+
+def test_near_dob_stays_inconclusive():
+    for dob in (date(1980, 5, 16), date(1980, 6, 15), date(1981, 5, 15), date(1980, 5, 12)):  # one part off
+        assert score_record(patient(dob=dob, zip_code="99999"), record(), CFG).band == "INCONCLUSIVE", dob
+    swapped = score_record(patient(dob=date(1980, 12, 5), zip_code="99999"), record(dob=date(1980, 5, 12)), CFG)
+    assert swapped.band == "INCONCLUSIVE"
+
+
+def test_dob_is_near_rules():
+    base = date(1980, 5, 15)
+    assert dob_is_near(base, date(1980, 5, 1)) and dob_is_near(base, date(1971, 5, 15))
+    assert not dob_is_near(base, date(1990, 1, 1)) and not dob_is_near(base, date(1981, 6, 15 - 1))
+
+
+def test_review_policy_restores_strict_behavior():
+    strict = MatchConfig(dob_far_policy="review")
+    assert score_record(patient(**FAR), record(), strict).band == "INCONCLUSIVE"
+
+
+def test_split_candidates_separates_notes_from_matches():
+    recs = [record(), record(first="ALICE", last="ZZZ"), record(dob=date(2000, 2, 2))]
+    matches, notes = split_candidates(patient(dob=date(1980, 5, 15), zip_code="99999"), recs, CFG)
+    assert len(matches) == 1 and matches[0].band == "FLAGGED" and len(notes) == 1
+
+
 def test_missing_record_dob_caps_at_inconclusive():
     s = score_record(patient(), record(dob=None), CFG)
     assert s.band == "INCONCLUSIVE" and s.capped
@@ -162,6 +201,14 @@ def _outcome(state, checked=True, scored=None, attempts=None):
 def test_all_checked_no_records_is_clear():
     v = aggregate([_outcome("IA")])
     assert v.status == OverallStatus.CLEAR and v.coverage == Coverage.COMPLETE
+
+
+def test_name_only_notes_do_not_block_clear():
+    o = _outcome("IA")
+    o.name_only = [_scored("NAME_ONLY", 0.39)]
+    v = aggregate([o])
+    assert v.status == OverallStatus.CLEAR and "SAME_NAME_DIFFERENT_DOB" in v.reasons
+    assert v.review == ReviewStatus.NOT_REQUIRED
 
 
 def test_flag_wins_over_everything():

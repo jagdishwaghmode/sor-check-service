@@ -126,6 +126,8 @@ class ProviderResultOut(BaseModel):
     synthetic: bool = False
     attempts: list[AttemptOut]
     offendersFound: list[OffenderOut]
+    sameNameOtherDob: list[OffenderOut] = []  # same name, birth date clearly different: not a match
+    sameNameOtherDobTotal: int = 0
 
 
 class CheckResponse(BaseModel):

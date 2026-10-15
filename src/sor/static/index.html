@@ -131,6 +131,7 @@ const PRESETS = [
   { name: "1. Exact match in Iowa (expect FLAGGED)", f: { firstName: "John", middleName: "Robert", lastName: "Doe", dob: "1980-05-15", street: "123 Main St", city: "Des Moines", zip: "50309", residenceState: "IA", facilityState: "IA" } },
   { name: "2. Nickname: Bob vs Robert (expect FLAGGED)", f: { firstName: "Bob", lastName: "Smith", dob: "1975-03-02", city: "Cedar Rapids", zip: "52401", residenceState: "IA", facilityState: "IA" } },
   { name: "3. Same name, different birth date (expect INCONCLUSIVE)", f: { firstName: "John", lastName: "Doe", dob: "1990-01-01", city: "Des Moines", zip: "50309", residenceState: "IA", facilityState: "IA" } },
+  { name: "3b. Same name, far-off birth date, other zip (expect CLEAR with a note)", f: { firstName: "John", lastName: "Doe", dob: "1990-01-01", city: "Cedar Rapids", zip: "52401", residenceState: "IA", facilityState: "IA" } },
   { name: "4. Nobody found (expect CLEAR)", f: { firstName: "Alice", lastName: "Wonderland", dob: "1991-04-12", city: "Des Moines", zip: "50309", residenceState: "IA", facilityState: "IA" } },
   { name: "5. Two states: lives in IA, facility in TX", f: { firstName: "Robert", middleName: "James", lastName: "Smith", dob: "1975-03-02", city: "Cedar Rapids", zip: "52401", residenceState: "IA", facilityState: "TX" } },
   { name: "6. Typo in surname, Texas CSV (Row vs Roe)", f: { firstName: "Daniel", lastName: "Row", dob: "1983-02-17", city: "Houston", zip: "77002", residenceState: "TX", facilityState: "TX" } },
@@ -253,6 +254,13 @@ function renderResult(r) {
           offenderTable(weak));
         card.append(d);
       }
+    }
+    if (pr.sameNameOtherDobTotal) {
+      // same name, birth date clearly different and nothing else in common: a note, never a match
+      const shown = pr.sameNameOtherDob.length, total = pr.sameNameOtherDobTotal;
+      card.append(h("details", { style: "margin-top:8px" },
+        h("summary", null, `${total} ${total > 1 ? "people share" : "person shares"} this name but ${total > 1 ? "have" : "has"} a clearly different birth date (not treated as a match)` + (shown < total ? `, first ${shown} shown` : "")),
+        offenderTable(pr.sameNameOtherDob)));
     }
     root.append(card);
   }

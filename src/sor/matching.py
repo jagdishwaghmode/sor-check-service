@@ -8,8 +8,14 @@ Guards (fail safe, see the private plan section 5):
 - birth date known on both sides and different: only a near-exact name stays (same name, other DOB
   is worth a human look, a merely similar name is noise). Found live: 17 of 19 rows for a common
   surname were this noise.
+- a birth date that is far off (not a plausible typo) with nothing else in common is NAME_ONLY: the
+  same name on a different person. It is shown for transparency but is not a match and does not need
+  a human. A same zip or same middle name keeps it INCONCLUSIVE. Policy `review` turns this off.
+  Found live: a made-up JOHN SMITH had 47 same-name people in the Texas registry.
 - if the registry record has no DOB, the result is capped at INCONCLUSIVE (needs a human)
 """
+
+from datetime import date
 
 from dataclasses import dataclass
 
@@ -67,6 +73,7 @@ class MatchConfig:
     flag_at: float = 0.75
     name_floor: float = 0.60
     dob_mismatch_min_name: float = 0.95  # a different birth date only keeps a near-exact name
+    dob_far_policy: str = "note"  # "note": far-off birth date is NAME_ONLY, "review": always INCONCLUSIVE
 
 
 @dataclass
@@ -76,7 +83,7 @@ class ScoredRecord:
     dob: float | None
     location: float | None
     score: float
-    band: str  # FLAGGED | INCONCLUSIVE
+    band: str  # FLAGGED | INCONCLUSIVE | NAME_ONLY (not a match) | NONE (dropped)
     capped: bool = False
     matched_alias: str | None = None  # set when an alias, not the registered name, gave the name score
 
@@ -184,6 +191,18 @@ def location_score(p: NormalizedPatient, r: RegistryRecord) -> float | None:
     return best
 
 
+def dob_is_near(a: date, b: date) -> bool:
+    """True if two birth dates could be one person with a typo: two of year, month, day agree, or
+    day and month are swapped (03/04 vs 04/03)."""
+    agree = (a.year == b.year) + (a.month == b.month) + (a.day == b.day)
+    return agree >= 2 or (a.year == b.year and a.month == b.day and a.day == b.month)
+
+
+def _corroborated(p: NormalizedPatient, r: RegistryRecord, loc: float | None) -> bool:
+    """Something besides the name agrees: same zip, or same full middle name."""
+    return loc == 1.0 or (len(p.middle) > 1 and p.middle == r.middle)
+
+
 def score_record(p: NormalizedPatient, r: RegistryRecord, cfg: MatchConfig) -> ScoredRecord:
     (n, via), d, loc = name_match(p, r), dob_score(p, r), location_score(p, r)
     parts = [(cfg.w_name, n)]
@@ -201,6 +220,9 @@ def score_record(p: NormalizedPatient, r: RegistryRecord, cfg: MatchConfig) -> S
     if d is None and score >= cfg.flag_at:
         score, capped = cfg.flag_at - 0.01, True
     band = "FLAGGED" if score >= cfg.flag_at else ("INCONCLUSIVE" if score >= cfg.clear_below else "NONE")
+    if (band != "NONE" and d == 0.0 and cfg.dob_far_policy == "note" and r.dob is not None
+            and not dob_is_near(p.dob, r.dob) and not _corroborated(p, r, loc)):
+        band, score = "NAME_ONLY", min(score, cfg.clear_below - 0.01)
     return ScoredRecord(r, round(n, 3), None if d is None else round(d, 3),
                         None if loc is None else round(loc, 3), round(score, 3), band, capped, via)
 
@@ -209,6 +231,14 @@ def score_records(
     p: NormalizedPatient, records: list[RegistryRecord], cfg: MatchConfig
 ) -> list[ScoredRecord]:
     """Score all candidates, keep only those at or above the clear threshold, best first."""
+    return split_candidates(p, records, cfg)[0]
+
+
+def split_candidates(
+    p: NormalizedPatient, records: list[RegistryRecord], cfg: MatchConfig
+) -> tuple[list[ScoredRecord], list[ScoredRecord]]:
+    """(matches that need action, same-name-other-person notes), each best first. The rest is dropped."""
     scored = [score_record(p, r, cfg) for r in records]
-    kept = [s for s in scored if s.band != "NONE"]
-    return sorted(kept, key=lambda s: s.score, reverse=True)
+    matches = sorted((s for s in scored if s.band in ("FLAGGED", "INCONCLUSIVE")), key=lambda s: s.score, reverse=True)
+    notes = sorted((s for s in scored if s.band == "NAME_ONLY"), key=lambda s: s.name, reverse=True)
+    return matches, notes

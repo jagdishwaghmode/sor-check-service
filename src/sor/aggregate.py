@@ -35,6 +35,7 @@ class StateOutcome:
     latency_ms: int
     data_as_of: str | None = None
     synthetic: bool = False
+    name_only: list[ScoredRecord] = field(default_factory=list)  # same name, clearly another person
 
 
 @dataclass
@@ -57,6 +58,8 @@ def aggregate(outcomes: list[StateOutcome]) -> Verdict:
         reasons.append("SYNTHETIC_DATA_SOURCE")
     if any(s.capped for s in scored):
         reasons.append("DOB_MISSING_AT_SOURCE")
+    if any(o.name_only for o in outcomes):
+        reasons.append("SAME_NAME_DIFFERENT_DOB")  # informational, not a match
 
     if len(unchecked) == len(outcomes):
         return Verdict(OverallStatus.ERROR, 0.0, Coverage.NONE, reasons + ["ALL_SOURCES_FAILED"])
