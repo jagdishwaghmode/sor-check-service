@@ -81,6 +81,8 @@ testing the real API):
 
 - Mock field names for FL and TN are placeholders, not checked against the real sources yet (TX and DC are).
 - Texas refresh is manual (download needs a login). A scheduled job needs a service account.
+- Tennessee, Missouri and Florida sites do not answer from our development network (looks like a block on non-US traffic), so they stay mock until tested from a US network.
+- Next steps are in the private plan ("Where we are and what is next").
 - Iowa searches by surname (starts-with), so a typo inside the surname is missed there. CSV states handle typos.
 - Iowa quota counter and circuit breakers are in memory per process. Several copies need a shared store.
 - No registrant cache, no hash-chained audit, no retention job, no real vendor, no auth beyond an optional API key.
