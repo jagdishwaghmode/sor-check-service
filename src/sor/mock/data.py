@@ -1,0 +1,81 @@
+"""Synthetic registry data. Every person here is fictional. Do not add real people."""
+
+# state, id, first, middle, last, suffix, aliases (full names), dob, street, city, zip, tier, offense
+PEOPLE: list[dict] = [
+    # ---- Iowa (live-API shape)
+    dict(state="IA", id="55102", first="JOHN", middle="ROBERT", last="DOE", suffix="", aliases=[],
+         dob="1980-05-15", street="123 MAIN ST", city="DES MOINES", zip="50309", tier="Tier II",
+         offense="Synthetic offense record (Tier II)"),
+    dict(state="IA", id="55103", first="ROBERT", middle="JAMES", last="SMITH", suffix="",
+         aliases=["BOB SMITH"], dob="1975-03-02", street="45 ELM AVE", city="CEDAR RAPIDS",
+         zip="52401", tier="Tier I", offense="Synthetic offense record (Tier I)"),
+    dict(state="IA", id="55104", first="MARIA", middle="", last="GARCIA-LOPEZ", suffix="",
+         aliases=[], dob="1990-11-23", street="9 RIVER RD", city="DAVENPORT", zip="52801",
+         tier="Tier I", offense="Synthetic offense record (Tier I)"),
+    dict(state="IA", id="55105", first="JOHN", middle="MICHAEL", last="DOE", suffix="",
+         aliases=[], dob="1962-01-09", street="77 OAK ST", city="AMES", zip="50010",
+         tier="Tier III", offense="Synthetic offense record (Tier III)"),
+    dict(state="IA", id="55106", first="WILLIAM", middle="", last="O'BRIEN", suffix="",
+         aliases=[], dob="1985-07-30", street="300 PIERCE ST", city="SIOUX CITY", zip="51101",
+         tier="Tier II", offense="Synthetic offense record (Tier II)"),
+    dict(state="IA", id="55107", first="KATHERINE", middle="ANN", last="NOVAK", suffix="",
+         aliases=["KATE NOVAK"], dob="1971-09-14", street="12 COLLEGE ST", city="IOWA CITY",
+         zip="52240", tier="Tier I", offense="Synthetic offense record (Tier I)"),
+    # ---- Texas (CSV snapshot shape)
+    dict(state="TX", id="77001", first="DANIEL", middle="ALAN", last="ROE", suffix="", aliases=[],
+         dob="1983-02-17", street="500 BAYOU BLVD", city="HOUSTON", zip="77002", tier="Level 2",
+         offense="Synthetic offense record (Level 2)"),
+    dict(state="TX", id="77002", first="JENNIFER", middle="LYNN", last="TESTERSON", suffix="",
+         aliases=[], dob="1992-06-05", street="88 CONGRESS AVE", city="AUSTIN", zip="78701",
+         tier="Level 1", offense="Synthetic offense record (Level 1)"),
+    dict(state="TX", id="77003", first="CARLOS", middle="EDUARDO", last="MENDEZ", suffix="",
+         aliases=[], dob="1978-12-01", street="14 ELM ST", city="DALLAS", zip="75201",
+         tier="Level 3", offense="Synthetic offense record (Level 3)"),
+    dict(state="TX", id="77004", first="JAMES", middle="T", last="WONDER", suffix="",
+         aliases=["JIMMY WONDER"], dob="1969-04-22", street="2 ALAMO PLZ", city="SAN ANTONIO",
+         zip="78205", tier="Level 2", offense="Synthetic offense record (Level 2)"),
+    dict(state="TX", id="77005", first="ROBERT", middle="JAMES", last="SMITH", suffix="",
+         aliases=[], dob="1988-08-08", street="610 MESA ST", city="EL PASO", zip="79901",
+         tier="Level 1", offense="Synthetic offense record (Level 1)"),
+    # ---- Florida (CSV snapshot shape, different columns and date format)
+    dict(state="FL", id="88001", first="MICHAEL", middle="ANTHONY", last="BROWN", suffix="",
+         aliases=[], dob="1981-10-10", street="1 OCEAN DR", city="MIAMI", zip="33101",
+         tier="Offender", offense="Synthetic offense record"),
+    dict(state="FL", id="88002", first="SARAH", middle="ELIZABETH", last="FAKEMAN", suffix="",
+         aliases=["LIZ FAKEMAN"], dob="1994-03-19", street="55 ORANGE AVE", city="ORLANDO",
+         zip="32801", tier="Predator", offense="Synthetic offense record"),
+    dict(state="FL", id="88003", first="ANTHONY", middle="RAY", last="VALDEZ", suffix="JR",
+         aliases=[], dob="1976-05-27", street="9 BAY ST", city="TAMPA", zip="33602",
+         tier="Offender", offense="Synthetic offense record"),
+    # ---- DC (ArcGIS shape, epoch-ms dates)
+    dict(state="DC", id="3301", first="MARCUS", middle="DEVON", last="FICTIONAL", suffix="",
+         aliases=[], dob="1979-01-30", street="1100 BLOCK K ST", city="WASHINGTON", zip="20001",
+         tier="Class A", offense="Synthetic offense record"),
+    dict(state="DC", id="3302", first="LATOYA", middle="R", last="TESTCASE", suffix="",
+         aliases=[], dob="1987-09-09", street="400 BLOCK 5TH ST", city="WASHINGTON", zip="20002",
+         tier="Class B", offense="Synthetic offense record"),
+    dict(state="DC", id="3303", first="EDWARD", middle="PAUL", last="DOE", suffix="",
+         aliases=["ED DOE"], dob="1965-12-25", street="700 BLOCK H ST", city="WASHINGTON",
+         zip="20003", tier="Class A", offense="Synthetic offense record"),
+    # ---- Tennessee (ArcGIS shape, different field names)
+    dict(state="TN", id="4401", first="THOMAS", middle="WAYNE", last="SAMPLE", suffix="",
+         aliases=[], dob="1982-04-04", street="200 BROADWAY", city="NASHVILLE", zip="37201",
+         tier="Violent", offense="Synthetic offense record"),
+    dict(state="TN", id="4402", first="AMANDA", middle="JO", last="FAKENAME", suffix="",
+         aliases=[], dob="1990-01-15", street="18 BEALE ST", city="MEMPHIS", zip="38103",
+         tier="Sex Offender", offense="Synthetic offense record"),
+    dict(state="TN", id="4403", first="CHRISTOPHER", middle="LEE", last="DUMMY", suffix="",
+         aliases=["CHRIS DUMMY"], dob="1973-07-07", street="31 GAY ST", city="KNOXVILLE",
+         zip="37902", tier="Sex Offender", offense="Synthetic offense record"),
+    # ---- States with no direct adapter: only the (mock) vendor knows them
+    dict(state="CA", id="9001", first="DIEGO", middle="ANDRES", last="SYNTHETICO", suffix="",
+         aliases=[], dob="1984-08-21", street="10 SUNSET BLVD", city="LOS ANGELES", zip="90001",
+         tier="Tier 2", offense="Synthetic offense record"),
+    dict(state="NY", id="1001", first="PATRICIA", middle="ANN", last="PLACEHOLDER", suffix="",
+         aliases=["PAT PLACEHOLDER"], dob="1977-02-12", street="5 FLATBUSH AVE", city="BROOKLYN",
+         zip="11201", tier="Level 2", offense="Synthetic offense record"),
+]
+
+
+def people_for(state: str) -> list[dict]:
+    return [p for p in PEOPLE if p["state"] == state]

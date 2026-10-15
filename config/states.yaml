@@ -1,0 +1,95 @@
+# Routing + matching config. To add a state:
+#   CSV state:    add a `providers:` block (type: csv + column map) and one line under `states:`
+#   ArcGIS state: add a `providers:` block (type: arcgis + field map) and one line under `states:`
+# States not listed under `states:` use `defaults.default_chain`.
+#
+# All data behind the mock providers is synthetic. Column and field names below are
+# placeholders shaped like the real sources, not verified against the real schemas.
+
+defaults:
+  timeout_ms: 3000
+  default_chain: [vendor_mock]
+
+breaker:
+  failure_threshold: 3
+  cooldown_s: 30
+
+matching:
+  weights: { name: 0.60, dob: 0.30, location: 0.10 }
+  thresholds: { clear_below: 0.40, flag_at_or_above: 0.75 }
+  name_floor: 0.60
+  # birth date known and different: keep the record only if the name is near exact (same name, other DOB)
+  dob_mismatch_min_name: 0.95
+
+providers:
+  # Iowa: official API shape. mode: mock (synthetic) or live (set IOWA_MODE=live).
+  # Iowa only returns aliases on pages of 25 or fewer and is slow (up to ~8s) on those, so we narrow
+  # by first initial (with nickname variants). If a narrowed query has more than
+  # page_size * max_pages results it cannot be checked completely and the vendor fallback is used.
+  # timeout_ms is just under Iowa's own 10 second limit per request.
+  iowa_direct: { type: iowa, mode: mock, hourly_quota: 45, page_size: 25, max_pages: 2, timeout_ms: 10000 }
+
+  # CSV snapshot states. max_age_hours is huge only because the demo files are synthetic.
+  # Texas: real data is the free DPS export (needs a TxDPS public account), flattened by
+  #   python -m sor.importers.tx_dps <export.zip> data/tx_registry_real.csv
+  # Set LIVE_PROVIDERS=tx_csv to use it. The DPS file is refreshed twice a week, so a file older than
+  # live_max_age_hours (14 days) counts as unavailable instead of giving a stale CLEAR.
+  tx_csv:
+    type: csv
+    state: TX
+    path: data/tx_registry.csv
+    max_age_hours: 87600
+    synthetic: true   # demo file with fake people, used unless the provider is in LIVE_PROVIDERS
+    detail_url: "https://example.invalid/tx/{id}"
+    live_path: data/tx_registry_real.csv
+    live_max_age_hours: 336
+    columns: { id: SID, last: LAST_NAME, first: FIRST_NAME, middle: MIDDLE_NAME, suffix: SUFFIX,
+               dob: DOB, street: STREET, city: CITY, state: ST, zip: ZIP, aliases: ALIASES,
+               tier: RISK_LEVEL, offense: OFFENSE }
+  fl_csv:
+    type: csv
+    state: FL
+    path: data/fl_registry.csv
+    max_age_hours: 87600
+    synthetic: true
+    detail_url: "https://example.invalid/fl/{id}"
+    columns: { id: "Offender Number", last: "Last Name", first: "First Name",
+               middle: "Middle Name", suffix: Suffix, dob: "Birth Date", street: Address,
+               city: City, state: State, zip: "Zip Code", aliases: Aliases,
+               tier: Designation, offense: Offense }
+
+  # ArcGIS REST states. DC is verified against the real service (set LIVE_PROVIDERS=dc_open_data).
+  # DC has no middle name, city or state columns, aliases are one text field joined by " / ", and one
+  # person can have several rows (home, work, school) that the provider merges by SEXOFFENDERCODE.
+  dc_open_data:
+    type: arcgis
+    state: DC
+    service: dc               # name of the mock service
+    live_url: https://maps2.dcgis.dc.gov/dcgis/rest/services/FEEDS/MPD/FeatureServer/20
+    prefix_len: 2
+    alias_search: true
+    alias_prefix_len: 3
+    alias_sep: " / "
+    tier_prefix: "Class "
+    defaults: { city: WASHINGTON, state: DC }
+    fields: { id: SEXOFFENDERCODE, first: FIRSTNAME, last: LASTNAME, dob: BIRTHDATE,
+              street: BLOCKNAME, zip: ZIPCODE, tier: MAXCLASSIFICATION, aliases: ALIASES,
+              modified: DCS_LAST_MOD_DTM }
+  # Tennessee: field names are still placeholders, the real service was unreachable when checked.
+  tn_open_data:
+    type: arcgis
+    state: TN
+    service: tn
+    fields: { id: TBI_ID, first: FNAME, middle: MNAME, last: LNAME, dob: BIRTH_DT,
+              street: ADDR1, city: CITY_NAME, state: ST, zip: ZIP5, tier: REG_TYPE,
+              offense: OFFENSE, aliases: AKA }
+
+  # Vendor fallback (mock, covers every state)
+  vendor_mock: { type: vendor }
+
+states:
+  IA: [iowa_direct, vendor_mock]
+  TX: [tx_csv, vendor_mock]
+  FL: [fl_csv, vendor_mock]
+  DC: [dc_open_data, vendor_mock]
+  TN: [tn_open_data, vendor_mock]
