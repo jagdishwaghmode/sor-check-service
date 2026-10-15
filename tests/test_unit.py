@@ -117,6 +117,23 @@ def test_near_dob_stays_inconclusive():
     assert swapped.band == "INCONCLUSIVE"
 
 
+def test_alternate_birth_date_counts_as_a_match():
+    rec = record()
+    rec.alt_dobs = [date(1990, 1, 1)]  # the person also used this birth date
+    s = score_record(patient(**FAR), rec, CFG)
+    assert s.band == "FLAGGED" and s.matched_alt_dob and s.dob == 1.0
+    primary = score_record(patient(), rec, CFG)
+    assert primary.band == "FLAGGED" and not primary.matched_alt_dob
+
+
+def test_alternate_birth_dates_also_count_for_typo_tolerance():
+    rec = record()
+    rec.alt_dobs = [date(1990, 1, 1)]
+    near_alt = score_record(patient(dob=date(1990, 1, 2), zip_code="99999"), rec, CFG)
+    far_from_all = score_record(patient(dob=date(1975, 9, 9), zip_code="99999"), rec, CFG)
+    assert near_alt.band == "INCONCLUSIVE" and far_from_all.band == "NAME_ONLY"
+
+
 def test_dob_is_near_rules():
     base = date(1980, 5, 15)
     assert dob_is_near(base, date(1980, 5, 1)) and dob_is_near(base, date(1971, 5, 15))

@@ -53,7 +53,7 @@ Texas notes: the DPS export is free but needs a TxDPS public account (login), is
 arrives as a zip of database tables. Convert it with
 `.venv/bin/python -m sor.importers.tx_dps path/to/export.zip data/tx_registry_real.csv` (about 1 second). The file
 is git-ignored (real people). A file older than 14 days (`live_max_age_hours`) counts as unavailable, so a missed
-refresh can never produce a stale CLEAR. Alternate birth dates in the export are not used yet.
+refresh can never produce a stale CLEAR. Alternate birth dates in the export (17,028 people have some) are loaded too: a patient whose birth date equals an alternate one is matched and the console says "matched on an alternate birth date".
 
 ### Iowa live mode
 

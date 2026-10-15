@@ -86,6 +86,7 @@ class ScoredRecord:
     band: str  # FLAGGED | INCONCLUSIVE | NAME_ONLY (not a match) | NONE (dropped)
     capped: bool = False
     matched_alias: str | None = None  # set when an alias, not the registered name, gave the name score
+    matched_alt_dob: bool = False  # the patient's birth date equals an alternate one, not the primary
 
 
 def first_name_variants(name: str) -> set[str]:
@@ -169,10 +170,15 @@ def name_score(p: NormalizedPatient, r: RegistryRecord) -> float:
     return name_match(p, r)[0]
 
 
+def known_dobs(r: RegistryRecord) -> list[date]:
+    return ([r.dob] if r.dob else []) + list(r.alt_dobs)
+
+
 def dob_score(p: NormalizedPatient, r: RegistryRecord) -> float | None:
-    if r.dob is None:
+    dobs = known_dobs(r)
+    if not dobs:
         return None
-    return 1.0 if p.dob == r.dob else 0.0
+    return 1.0 if p.dob in dobs else 0.0
 
 
 def location_score(p: NormalizedPatient, r: RegistryRecord) -> float | None:
@@ -221,10 +227,11 @@ def score_record(p: NormalizedPatient, r: RegistryRecord, cfg: MatchConfig) -> S
         score, capped = cfg.flag_at - 0.01, True
     band = "FLAGGED" if score >= cfg.flag_at else ("INCONCLUSIVE" if score >= cfg.clear_below else "NONE")
     if (band != "NONE" and d == 0.0 and cfg.dob_far_policy == "note" and r.dob is not None
-            and not dob_is_near(p.dob, r.dob) and not _corroborated(p, r, loc)):
+            and not any(dob_is_near(p.dob, x) for x in known_dobs(r)) and not _corroborated(p, r, loc)):
         band, score = "NAME_ONLY", min(score, cfg.clear_below - 0.01)
     return ScoredRecord(r, round(n, 3), None if d is None else round(d, 3),
-                        None if loc is None else round(loc, 3), round(score, 3), band, capped, via)
+                        None if loc is None else round(loc, 3), round(score, 3), band, capped, via,
+                        d == 1.0 and p.dob != r.dob)
 
 
 def score_records(

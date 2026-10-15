@@ -104,6 +104,7 @@ class OffenderOut(BaseModel):
     tier: str | None = None
     offenseDetails: str | None = None
     matchedAlias: str | None = None  # the alias that matched, when not the registered name
+    matchedAlternateDob: bool = False  # the patient's birth date equals an alternate, not the primary
     detailUrl: str | None = None
     state: str
     provider: str
@@ -171,6 +172,7 @@ class RegistryRecord:
     suffix: str
     aliases: list[tuple[str, str, str]] = field(default_factory=list)
     dob: date | None = None
+    alt_dobs: list[date] = field(default_factory=list)  # other birth dates the source lists for this person
     addresses: list[tuple[str, str, str, str]] = field(default_factory=list)  # street, city, state, zip
     tier: str | None = None
     offense: str | None = None

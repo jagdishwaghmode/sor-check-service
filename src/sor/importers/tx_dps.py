@@ -8,7 +8,7 @@ its own Layout.pdf and DisplayRecord.sql:
 - PERSON      PER_IDN -> IND_IDN
 - NAME        per PER_IDN, TYP_COD 'B' is the primary name, other codes (S, H) are aliases.
               FNA_TXT holds "FIRST MIDDLE... [SUFFIX]", LNA_TXT the surname (never has spaces)
-- BRTHDATE    per PER_IDN, TYP_COD 'B' is the primary birth date (other codes are alternates, not used)
+- BRTHDATE    per PER_IDN, TYP_COD 'B' is the primary birth date, other codes are alternate birth dates
 - INDV_SOR    RSK_COD risk level (1 High, 2 Moderate, 3 Low, C civil commitment, N not reported, U unknown)
 - Address     per IND_IDN, about 60 percent have street, city and zip filled
 
@@ -29,7 +29,7 @@ from pathlib import Path
 SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
 RISK = {"1": "High", "2": "Moderate", "3": "Low", "C": "Civil Commitment", "N": "Not Reported", "U": "Unknown"}
 FIELDS = ["SID", "LAST_NAME", "FIRST_NAME", "MIDDLE_NAME", "SUFFIX", "DOB", "STREET", "CITY", "ST", "ZIP",
-          "ALIASES", "RISK_LEVEL", "OFFENSE"]
+          "ALIASES", "RISK_LEVEL", "OFFENSE", "ALT_DOBS"]
 _NEEDED = ("INDV", "PERSON", "NAME", "BRTHDATE", "INDV_SOR", "Address")
 _MAX_MEMBER_BYTES = 200 * 1024 * 1024  # a zip bomb guard, the real biggest table is about 22 MB
 
@@ -87,8 +87,16 @@ def convert(zip_path: Path, out_path: Path) -> dict:
             else:
                 aliases[ind].append(" ".join(x for x in (first, middle, r[4].strip().upper()) if x))
 
-        dob = {person_ind[r[1]]: r[3].strip() for r in _table(zf, "BRTHDATE")
-               if len(r) >= 4 and r[2] == "B" and r[1] in person_ind}
+        dob: dict[str, str] = {}
+        alt_dobs: dict[str, set[str]] = defaultdict(set)
+        for r in _table(zf, "BRTHDATE"):
+            ind = person_ind.get(r[1]) if len(r) >= 4 else None
+            if ind is None or not r[3].strip():
+                continue
+            if r[2] == "B":
+                dob[ind] = r[3].strip()
+            else:
+                alt_dobs[ind].add(r[3].strip())
 
         address: dict[str, list[str]] = {}
         for r in _table(zf, "Address"):
@@ -117,13 +125,15 @@ def convert(zip_path: Path, out_path: Path) -> dict:
                 sid, last, first, middle, suffix, dob.get(ind, ""),
                 _street(a) if a else "", a[6].strip().upper() if a else "", _state(a[7]) if a else "",
                 a[8].strip() if a else "", ";".join(extra), RISK.get(risk.get(ind, ""), ""), "",
+                ";".join(sorted(alt_dobs.get(ind, set()) - {dob.get(ind, "")})),
             ])
             written += 1
     os.replace(tmp, out_path)
     ts = as_of.timestamp()
     os.utime(out_path, (ts, ts))  # staleness is judged by the export date, not by when we converted it
     return {"people": written, "with_address": sum(1 for i in primary if i in address),
-            "with_dob": sum(1 for i in primary if dob.get(i)), "export_date": as_of.date().isoformat()}
+            "with_dob": sum(1 for i in primary if dob.get(i)),
+            "with_alt_dob": sum(1 for i in primary if alt_dobs.get(i, set()) - {dob.get(i, "")}), "export_date": as_of.date().isoformat()}
 
 
 def main() -> None:

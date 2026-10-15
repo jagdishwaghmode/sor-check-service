@@ -49,7 +49,7 @@ providers:
     live_max_age_hours: 336
     columns: { id: SID, last: LAST_NAME, first: FIRST_NAME, middle: MIDDLE_NAME, suffix: SUFFIX,
                dob: DOB, street: STREET, city: CITY, state: ST, zip: ZIP, aliases: ALIASES,
-               tier: RISK_LEVEL, offense: OFFENSE }
+               tier: RISK_LEVEL, offense: OFFENSE, alt_dobs: ALT_DOBS }
   fl_csv:
     type: csv
     state: FL

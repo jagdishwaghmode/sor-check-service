@@ -184,7 +184,7 @@ class Engine:
                 matchConfidence=s.score, band=s.band,
                 scoreBreakdown=ScoreBreakdown(name=s.name, dob=s.dob, location=s.location),
                 capped=s.capped, tier=s.record.tier, offenseDetails=s.record.offense,
-                matchedAlias=s.matched_alias,
+                matchedAlias=s.matched_alias, matchedAlternateDob=s.matched_alt_dob,
                 detailUrl=s.record.detail_url, state=s.record.source_state,
                 provider=s.record.source_provider,
             )

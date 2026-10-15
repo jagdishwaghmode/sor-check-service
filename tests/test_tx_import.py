@@ -56,6 +56,7 @@ def test_convert_flattens_tables(tmp_path):
     a = rows["00000001"]
     assert (a["LAST_NAME"], a["FIRST_NAME"], a["MIDDLE_NAME"], a["SUFFIX"]) == ("ZZTESTER", "ROBERT", "JAMES", "JR")
     assert a["DOB"] == "1970-02-03" and a["RISK_LEVEL"] == "High"
+    assert a["ALT_DOBS"] == "1971-02-03" and stats["with_alt_dob"] == 1
     assert a["ALIASES"] == "BOB ZZTESTER"  # the alias equal to the primary name is dropped
     assert (a["STREET"], a["CITY"], a["ST"], a["ZIP"]) == ("12 MADE UP ST APT 4", "SPRINGFIELD", "TX", "75001")
     b = rows["00000002"]
@@ -78,7 +79,7 @@ CFG = {"state": "TX", "path": "demo.csv", "max_age_hours": 87600, "synthetic": T
        "live_max_age_hours": 336,
        "columns": {"id": "SID", "last": "LAST_NAME", "first": "FIRST_NAME", "middle": "MIDDLE_NAME", "suffix": "SUFFIX",
                    "dob": "DOB", "street": "STREET", "city": "CITY", "state": "ST", "zip": "ZIP",
-                   "aliases": "ALIASES", "tier": "RISK_LEVEL", "offense": "OFFENSE"}}
+                   "aliases": "ALIASES", "tier": "RISK_LEVEL", "offense": "OFFENSE", "alt_dobs": "ALT_DOBS"}}
 
 
 def test_provider_uses_real_file_only_when_listed_live(tmp_path):
@@ -105,6 +106,7 @@ def test_real_file_finds_alias_and_old_file_is_unavailable(tmp_path):
     prov.max_age_hours = 10**7
     hits = asyncio.run(prov.search(patient, "TX"))
     assert [r.registry_id for r in hits] == ["TX-00000001"]
+    assert hits[0].dob == date(1970, 2, 3) and hits[0].alt_dobs == [date(1971, 2, 3)]
 
 
 def test_warm_up_loads_file_and_tolerates_a_missing_one(tmp_path):

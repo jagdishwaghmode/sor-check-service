@@ -102,6 +102,7 @@ class CsvSnapshotProvider(Provider):
                     suffix=get("suffix"),
                     aliases=aliases,
                     dob=parse_date(get("dob")),
+                    alt_dobs=[d for d in map(parse_date, get("alt_dobs").split(";")) if d],
                     street=get("street"),
                     city=get("city"),
                     state=get("state") or self.state,
