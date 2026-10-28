@@ -74,6 +74,7 @@ testing the real API):
 - `FLAGGED` and `INCONCLUSIVE` set `reviewStatus: PENDING`. The service never decides admission.
 - A name that differs too much cannot be rescued by matching DOB and zip.
 - Same name but a birth date that is far off (not a plausible typo: two of year, month, day must agree, or day and month swapped), with no same zip and no same middle name, is a different person. It is listed under "same name, different birth date" with reason `SAME_NAME_DIFFERENT_DOB` and does not need a human. A typo-sized difference, a same zip or a same middle name stays `INCONCLUSIVE`. Set `matching.dob_far_policy: review` in `config/states.yaml` for the strict version (always `INCONCLUSIVE`, many reviews for common names).
+- Only first and last name are required (plus patient id and facility state). Birth date, address and the rest are optional. With no birth date a check can never be `FLAGGED`: it is `INCONCLUSIVE` with reason `DOB_NOT_PROVIDED`, and only a near-exact name counts.
 - Every check writes an audit row (insert-only, patient details encrypted). If that write fails, the API returns 503 instead of an unaudited verdict.
 - A CSV snapshot older than `max_age_hours` counts as unavailable.
 

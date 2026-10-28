@@ -60,12 +60,26 @@ class Patient(BaseModel):
     middleName: str | None = Field(default=None, max_length=80)
     lastName: str = Field(min_length=1, max_length=80)
     suffix: str | None = Field(default=None, max_length=10)
-    dob: str
+    dob: str | None = None
     address: Address | None = None
+
+    @field_validator("firstName", "lastName")
+    @classmethod
+    def _name_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("name must not be blank")
+        return v
+
+    @field_validator("dob", mode="before")
+    @classmethod
+    def _blank_dob_is_missing(cls, v):
+        return None if isinstance(v, str) and not v.strip() else v
 
     @field_validator("dob")
     @classmethod
-    def _dob_valid(cls, v: str) -> str:
+    def _dob_valid(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
         d = parse_date(v)
         if d is None or not plausible_dob(d):
             raise ValueError("dob must be a real past date, e.g. 1980-05-15 or 05/15/1980")
@@ -156,7 +170,7 @@ class NormalizedPatient:
     middle: str
     last: str
     suffix: str
-    dob: date
+    dob: date | None
     street: str
     city: str
     state: str

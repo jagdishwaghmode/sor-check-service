@@ -20,6 +20,8 @@ matching:
   name_floor: 0.60
   # birth date known and different: keep the record only if the name is near exact (same name, other DOB)
   dob_mismatch_min_name: 0.95
+  # no birth date given: the result is capped at INCONCLUSIVE and only a near-exact name is kept
+  no_dob_min_name: 0.95
   # same name but a birth date that is far off (not a typo) and no same zip or middle name:
   #   note   = listed as "same name, different person", does not need a human (default)
   #   review = always INCONCLUSIVE (the strictest reading, many reviews for common names)

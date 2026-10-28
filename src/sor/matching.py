@@ -12,7 +12,9 @@ Guards (fail safe, see the private plan section 5):
   same name on a different person. It is shown for transparency but is not a match and does not need
   a human. A same zip or same middle name keeps it INCONCLUSIVE. Policy `review` turns this off.
   Found live: a made-up JOHN SMITH had 47 same-name people in the Texas registry.
-- if the registry record has no DOB, the result is capped at INCONCLUSIVE (needs a human)
+- if the registry record has no DOB, or the patient gave none, the result is capped at INCONCLUSIVE
+  (needs a human). Without a patient birth date only a near-exact name (`no_dob_min_name`) is kept,
+  because a similar name alone would match far too many people.
 """
 
 from datetime import date
@@ -73,6 +75,7 @@ class MatchConfig:
     flag_at: float = 0.75
     name_floor: float = 0.60
     dob_mismatch_min_name: float = 0.95  # a different birth date only keeps a near-exact name
+    no_dob_min_name: float = 0.95  # no birth date given: only a near-exact name is worth a human look
     dob_far_policy: str = "note"  # "note": far-off birth date is NAME_ONLY, "review": always INCONCLUSIVE
 
 
@@ -176,7 +179,7 @@ def known_dobs(r: RegistryRecord) -> list[date]:
 
 def dob_score(p: NormalizedPatient, r: RegistryRecord) -> float | None:
     dobs = known_dobs(r)
-    if not dobs:
+    if p.dob is None or not dobs:
         return None
     return 1.0 if p.dob in dobs else 0.0
 
@@ -222,6 +225,8 @@ def score_record(p: NormalizedPatient, r: RegistryRecord, cfg: MatchConfig) -> S
     if n < cfg.name_floor:
         score = min(score, cfg.clear_below - 0.01)
     if d == 0.0 and n < cfg.dob_mismatch_min_name:
+        score = min(score, cfg.clear_below - 0.01)
+    if p.dob is None and n < cfg.no_dob_min_name:
         score = min(score, cfg.clear_below - 0.01)
     if d is None and score >= cfg.flag_at:
         score, capped = cfg.flag_at - 0.01, True

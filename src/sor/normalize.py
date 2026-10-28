@@ -5,9 +5,7 @@ from sor.textutil import clean, parse_date, split_suffix, zip5
 
 
 def normalize_patient(p: Patient) -> NormalizedPatient:
-    dob = parse_date(p.dob)
-    if dob is None:  # request validation already guarantees this
-        raise ValueError("unparseable dob")
+    dob = parse_date(p.dob) if p.dob else None  # birth date is optional, validation rejects bad ones
     last, suffix = split_suffix(clean(p.lastName), clean(p.suffix))
     addr = p.address
     return NormalizedPatient(

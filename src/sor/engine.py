@@ -139,7 +139,7 @@ class Engine:
         states = list(dict.fromkeys([facility, (home or facility).upper()]))
 
         outcomes = await asyncio.gather(*(self._run_state(s, patient) for s in states))
-        verdict = aggregate(list(outcomes))
+        verdict = aggregate(list(outcomes), dob_given=patient.dob is not None)
         mc = self.cfg.match
 
         response = CheckResponse(
@@ -167,7 +167,7 @@ class Engine:
             providers=[a.provider for o in outcomes for a in o.attempts],
             status=verdict.status.value, latency_ms=_ms(t0),
             summary={
-                "patient": f"{mask_name(patient.first, patient.last)} ({patient.dob.year})",
+                "patient": f"{mask_name(patient.first, patient.last)} ({patient.dob.year if patient.dob else 'no birth date'})",
                 "coverage": verdict.coverage.value, "reasons": verdict.reasons,
                 "score": verdict.score,
             },

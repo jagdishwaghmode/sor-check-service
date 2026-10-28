@@ -83,6 +83,7 @@ def load_config(path: Path) -> AppConfig:
         clear_below=t.get("clear_below", 0.40), flag_at=t.get("flag_at_or_above", 0.75),
         name_floor=m.get("name_floor", 0.60),
         dob_mismatch_min_name=m.get("dob_mismatch_min_name", 0.95),
+        no_dob_min_name=m.get("no_dob_min_name", 0.95),
         dob_far_policy=m.get("dob_far_policy", "note"),
     )
     cfg = AppConfig(

@@ -47,7 +47,7 @@ class Verdict:
     review: ReviewStatus = ReviewStatus.NOT_REQUIRED
 
 
-def aggregate(outcomes: list[StateOutcome]) -> Verdict:
+def aggregate(outcomes: list[StateOutcome], dob_given: bool = True) -> Verdict:
     unchecked = [o for o in outcomes if not o.checked]
     scored = [s for o in outcomes for s in o.scored]
     reasons: list[str] = []
@@ -56,7 +56,9 @@ def aggregate(outcomes: list[StateOutcome]) -> Verdict:
         reasons.append("PRIMARY_FAILED_FALLBACK_USED")
     if any(o.synthetic for o in outcomes):
         reasons.append("SYNTHETIC_DATA_SOURCE")
-    if any(s.capped for s in scored):
+    if not dob_given:
+        reasons.append("DOB_NOT_PROVIDED")
+    elif any(s.capped for s in scored):
         reasons.append("DOB_MISSING_AT_SOURCE")
     if any(o.name_only for o in outcomes):
         reasons.append("SAME_NAME_DIFFERENT_DOB")  # informational, not a match

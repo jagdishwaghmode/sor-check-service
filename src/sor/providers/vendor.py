@@ -38,7 +38,7 @@ class VendorProvider(Provider):
             "firstName": patient.first,
             "middleName": patient.middle or None,
             "lastName": patient.last,
-            "dateOfBirths": [patient.dob.isoformat()],
+            "dateOfBirths": [patient.dob.isoformat()] if patient.dob else [],
             "state": state,
             "services": ["SOR"],
         }

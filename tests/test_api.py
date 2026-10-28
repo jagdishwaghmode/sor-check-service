@@ -232,3 +232,26 @@ def test_states_endpoint_and_ui_served(client):
     assert set(s["states"]) == {"IA", "TX", "FL", "DC", "TN"} and s["defaultChain"][0]["provider"] == "vendor_mock"
     page = client.get("/")
     assert page.status_code == 200 and "SOR Check Console" in page.text
+
+
+# ---------------------------------------------------------------- only the name is required
+
+
+def test_name_only_match_needs_review_and_says_why(client):
+    r = post(client, make_request("John", "Doe", None))
+    assert r["status"] == "INCONCLUSIVE" and r["reviewStatus"] == "PENDING"
+    assert "DOB_NOT_PROVIDED" in r["reasons"] and "DOB_MISSING_AT_SOURCE" not in r["reasons"]
+
+
+def test_name_only_nobody_found_is_clear_with_a_note(client):
+    r = post(client, make_request("Alice", "Wonderland", None))
+    assert r["status"] == "CLEAR" and "DOB_NOT_PROVIDED" in r["reasons"]
+
+
+def test_blank_dob_counts_as_missing(client):
+    assert post(client, make_request("Alice", "Wonderland", "  "))["reasons"].count("DOB_NOT_PROVIDED") == 1
+
+
+@pytest.mark.parametrize("first, last", [("", "Doe"), ("John", ""), ("  ", "Doe")])
+def test_blank_name_is_422(client, first, last):
+    assert client.post("/v1/sor/checks", json=make_request(first, last, None)).status_code == 422

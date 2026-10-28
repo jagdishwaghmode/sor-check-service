@@ -104,6 +104,16 @@ def test_far_dob_same_name_is_name_only_not_a_match():
     assert s.band == "NAME_ONLY" and s.score < CFG.clear_below
 
 
+def test_no_patient_dob_caps_an_exact_name_at_inconclusive():
+    s = score_record(patient(dob=None), record(), CFG)
+    assert s.band == "INCONCLUSIVE" and s.capped and s.dob is None
+
+
+def test_no_patient_dob_keeps_only_near_exact_names():
+    typo = score_record(patient(dob=None, last="DOW"), record(), CFG)
+    assert typo.band == "NONE" and typo.score < CFG.clear_below
+
+
 def test_far_dob_with_same_zip_or_middle_name_stays_inconclusive():
     same_zip = score_record(patient(dob=date(1990, 1, 1), zip_code="50309"), record(), CFG)
     same_middle = score_record(patient(middle="MICHAEL", **FAR), record(middle="MICHAEL"), CFG)
