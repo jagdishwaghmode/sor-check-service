@@ -2,22 +2,13 @@
 
 Validates that when only a name is supplied (no DOB, no ZIP) the providers
 and matching layer behave consistently:
-- A strong name match without a DOB caps at INCONCLUSIVE (never FLAGGED).
-  score_record() guards this at line 226-227: if d is None and score >= flag_at,
-  it is clamped to flag_at - 0.01 and capped=True.
-- NAME_ONLY band requires d == 0.0 (a known-wrong DOB), so it can never come
-  from a no-DOB patient. Asserts use == "INCONCLUSIVE" and s.capped accordingly.
+- A strong name match without a DOB caps at INCONCLUSIVE (never FLAGGED):
+  score_record() clamps the score below flag_at and sets capped=True.
+- NAME_ONLY needs a known-wrong DOB (d == 0.0), so a no-DOB patient can
+  never get it. The asserts use == "INCONCLUSIVE" and s.capped.
 - A weak / partial name with no DOB is dropped (NONE).
-- Results across Iowa and Texas are deduplicated correctly when both
-  registries are searched for the same patient.
 
-All tests use the existing mock registry (conftest / mock providers) —
-no network calls are made.
-
-Note: tests that call score_record() with dob=None require the dob_is_near()
-guard on line 230 of matching.py to handle None safely (commit b3fbc9d on ui).
-Until that lands on main the provider-level tests are skipped; the scoring
-tests below are marked to document the expected behaviour regardless.
+All tests use the mock registry, no network calls are made.
 """
 
 import asyncio
@@ -62,11 +53,7 @@ def run(coro):
 # ===========================================================================
 
 class TestIowaNameOnlyMatching:
-    """Verify Iowa scoring when the patient has no DOB (name-only lookup).
-
-    Requires matching.py to guard dob_is_near(None, ...) — tracked as
-    open item until ui branch merges into main.
-    """
+    """Verify Iowa scoring when the patient has no DOB (name-only lookup)."""
 
     def test_exact_name_no_dob_is_inconclusive_and_capped(self):
         """Exact first+last match without a DOB must be INCONCLUSIVE and capped.
@@ -195,10 +182,3 @@ class TestTexasNameOnlyMatching:
             f"Common name without DOB produced FLAGGED hits: "
             f"{[r.record.registry_id for r in flagged]}"
         )
-
-    def test_result_sets_iowa_and_texas_are_distinct(self):
-        """Registry IDs from IA and TX must not collide (different prefixes)."""
-        ia_rec = _record("JOHN", "DOE", registry_id="IA-55102", source_state="IA")
-        tx_rec = _record("JOHN", "DOE", registry_id="TX-00042", source_state="TX")
-        assert ia_rec.registry_id != tx_rec.registry_id
-        assert ia_rec.source_state != tx_rec.source_state
