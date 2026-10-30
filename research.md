@@ -265,3 +265,73 @@ Key point for production: patient name plus date of birth sent by a healthcare p
 - The importer is `src/sor/importers/tx_dps.py` (reads zip members by exact name, never extracts). Checks take 12 to 45 ms from memory.
 - Matching on real data: 47 people come back for a made-up JOHN SMITH (22 with that exact name, 28 through an alias, all with other birth dates), so common names ended INCONCLUSIVE and a common-named patient always needed a human. Fixed with `dob_far_policy: note` (same name, far-off birth date, no same zip or middle name is listed as a note, not a match, verdict CLEAR with reason SAME_NAME_DIFFERENT_DOB). Same test after the fix: JOHN SMITH CLEAR with 47 notes, exact-name controls still FLAGGED, exact name with the birth date off by one day still INCONCLUSIVE.
 - FDLE (Florida): every FDLE host timed out from this machine (home page too) while google.com loaded, so Florida was not attempted.
+
+---
+
+## 13. Round 3: state reachability re-check and paid provider short-list (2026-10-30)
+
+Research pass 2 for states that failed in rounds 1 and 2, plus a head-to-head on the two paid
+providers that survived initial filtering. Method: curl probes from a US-East VPS (Virginia,
+residential IP), 10-second connect timeout, three attempts each spaced 30 seconds apart.
+
+### 13.1 State site reachability (re-tested 2026-10-30)
+
+| State | Endpoint tried | Result | Notes |
+|-------|---------------|--------|-------|
+| FL | `offender.fdle.state.fl.us/offender/publicDataFile.jsf` | **3/3 timeout** | TCP SYN sent, no SYN-ACK. Same from US-East, so it is not a geo-block. FDLE may firewall non-browser user-agents or require TLS client hello matching. Browser test pending |
+| FL | `www.fdle.state.fl.us/SOPS/public_data_file` | **3/3 timeout** | Same behavior as the portal |
+| TN | `tnmap.tn.gov/arcgis/rest/services/PUBLIC_SAFETY/TBI_SEX_OFFENDER_REGISTRY/MapServer` | **3/3 connection reset** | TCP connects then RST after ~200ms. Tried with `Accept: application/json` header, same result. The iteminfo endpoint from R1 also resets |
+| MO | `www.mshp.dps.mo.gov/arcgis/rest/services/NSOR/MapServer` | **2/3 timeout, 1/3 reset** | Intermittent, never got a response body |
+| NY | `www.criminaljustice.ny.gov/SomsPublic/search` | **Works (200)** | Returns HTML search form, no API or bulk download found. POST-based search with CAPTCHA |
+| VA | `sex-offender.vsp.virginia.gov/sor/` | **Works (200)** | HTML search only, CAPTCHA gated, no API, no bulk data |
+| OH | `www.icrimewatch.net/index.php?AgencyID=55149` | **Works (200)** | OffenderWatch-powered, HTML search, no documented API. Potential future OffenderWatch adapter if we get their API access |
+| WA | `www.icrimewatch.net/index.php?AgencyID=54528` | **Works (200)** | Also OffenderWatch. Same adapter would cover both OH and WA |
+| MD | `www.dpscs.state.md.us/sorSearch/` | **Works (200)** | HTML search, no API. Maryland requires registry checks at admission (HB 1072), so this state matters |
+
+Summary: FL, TN and MO remain unreachable even from a US IP. NY, VA, OH, WA and MD respond but
+offer no API or bulk data. OH and WA both run on OffenderWatch, confirming the R1 finding that one
+adapter family could cover multiple states if we get vendor access.
+
+### 13.2 Paid provider comparison (Offenders.io vs Nannostomus)
+
+These two survived initial filtering from R1 section 12 because they offer name + DOB search
+(RegistryRadar is coordinates-only, CrimeoMeter has no DOB field). Compared on the five
+dimensions that matter for a fallback provider.
+
+| Dimension | Offenders.io | Nannostomus |
+|-----------|-------------|-------------|
+| **Endpoint** | `GET api.offenders.io/sexoffender?firstName&lastName&zipcode&key`, optional `fuzzy=true` (+$0.02/req) | `POST api.nannostomus.com/v1/search` JSON body `{first_name, last_name, dob, state}` |
+| **Auth** | API key in query string | API key in `X-Api-Key` header |
+| **Response shape** | JSON array of matches with `full_name`, `dob`, `address`, `offenses[]`, `photo_url`, `source_jurisdiction`, `last_checked` | JSON `{results: [{name, birth_year, state, tier, aliases[], conviction_summary}], meta: {source_count, freshness_date}}` |
+| **Coverage** | 184 jurisdictions, synced continuously per vendor claim. Optional live lookups for an extra fee | 50 states + territories + tribes, 820K records per vendor claim. Refreshed monthly |
+| **Freshness** | Continuous sync (unverified), `last_checked` timestamp per result | Monthly bulk refresh, `freshness_date` in response metadata |
+| **Free tier** | 50 requests/month | 100 requests/month |
+| **Paid pricing** | Pay-as-you-go after free tier, fuzzy adds $0.02/req, volume pricing not published | $0.15/req declining to $0.01/req at volume |
+| **BAA availability** | Enterprise customers only, standard accounts must not send PHI | Not mentioned, no healthcare-specific terms found |
+| **FCRA position** | Explicitly not a consumer report, not for FCRA decisions | Not FCRA, but lists healthcare as a use case |
+| **Match confidence** | Not provided, returns all matches above an internal threshold | Not provided |
+| **DOB in search** | Not a search parameter (zip only with name), DOB appears in results for our matcher to score | DOB is a search parameter, birth_year only in results (not full date) |
+
+**Verdict for fallback strategy:**
+
+Offenders.io is stronger on freshness (continuous vs monthly) and returns a full birth date in
+results, which our matcher needs for scoring. But PHI cannot be sent without an Enterprise BAA,
+so real-patient use requires the Enterprise tier and a signed agreement.
+
+Nannostomus accepts DOB as a search parameter (potentially better precision server-side) but
+returns only birth year in results, which limits our DOB scoring to year-match only. Monthly
+refresh is a concern for states that update weekly or daily.
+
+Neither provider gives match confidence, so our own matcher would score their results the same
+way it scores direct-source records.
+
+**Recommendation:** request Enterprise pricing and a BAA draft from Offenders.io. Use Nannostomus
+as a secondary fallback only if Offenders.io terms are unworkable. Do not send real patient data
+to either until a BAA is signed.
+
+### 13.3 What this means for config
+
+No config changes needed yet. The vendor adapter in `providers/vendor.py` already supports the
+sync GET shape that Offenders.io uses. Nannostomus uses POST, which `http_json` in `base.py`
+handles. Adding either vendor is a new provider block in `states.yaml` once we have a key and
+a signed agreement.

@@ -93,9 +93,34 @@ providers:
   # Vendor fallback (mock, covers every state)
   vendor_mock: { type: vendor }
 
+  # Paid vendor candidates (R3, 2026-10-30). Not wired yet, pending BAA and API key.
+  # offenders_io:
+  #   type: vendor
+  #   live_url: https://api.offenders.io/sexoffender
+  #   auth: query_param
+  #   freshness: continuous
+  #   baa_required: true
+  # nannostomus:
+  #   type: vendor
+  #   live_url: https://api.nannostomus.com/v1/search
+  #   auth: header
+  #   freshness: monthly
+  #   baa_required: unknown
+
 states:
   IA: [iowa_direct, vendor_mock]
   TX: [tx_csv, vendor_mock]
   FL: [fl_csv, vendor_mock]
   DC: [dc_open_data, vendor_mock]
   TN: [tn_open_data, vendor_mock]
+
+# States investigated in R3 (2026-10-30). All route through default_chain (vendor_mock) for now.
+# Reachability status from US-East probe:
+#   NY: site responds, no API, CAPTCHA-gated search only
+#   VA: site responds, no API, CAPTCHA-gated search only
+#   OH: OffenderWatch-powered, no public API (potential future adapter)
+#   WA: OffenderWatch-powered, no public API (same adapter as OH)
+#   MD: site responds, no API, legally requires admission checks (HB 1072)
+#   MO: ArcGIS endpoint unreachable (intermittent timeout/reset)
+#   FL: both FDLE endpoints still unreachable, not a geo-block
+#   TN: TBI MapServer still connection-reset, not a geo-block
